@@ -1,102 +1,208 @@
-# Personal AI Assistant with Google Drive Integration
+# 🤖 Unified AI Document Assistant
 
-A comprehensive AI-powered assistant that uses Google SSO to access your entire Google Drive, processes all your PDF documents, and creates a personalized knowledge base for intelligent Q&A.
+A comprehensive document processing and querying system that combines PDFs, Google Docs, and Sheets with AI-powered analysis using Gemini Vision, spaCy NLP, and vector search.
 
-## Features
+## 🚀 Features
 
-- 🔐 **Google SSO Authentication**: Secure sign-in with your Google account
-- 🔍 **Complete Drive Scanning**: Automatically finds and processes ALL PDFs in your Drive
-- 🧠 **Personal Knowledge Base**: Creates embeddings from your entire document collection
-- 💬 **Intelligent Chat**: Ask questions about any of your documents
-- 🔒 **User-Specific Data**: Each user gets their own private vector database
-- 📊 **Progress Tracking**: Real-time progress during document processing
-- 🔄 **Auto-Refresh**: Option to update your knowledge base with new documents
+### 📄 **Multi-Format Document Support**
+- **PDFs**: Text extraction + image analysis with Gemini Vision
+- **Google Docs**: Direct content extraction and processing
+- **Google Sheets/Excel**: Structured data processing with LlamaParse
 
-## Running the project
+### 🧠 **Intelligent Query Processing**
+- **Query Classification**: Automatically detects content vs metadata queries using spaCy NLP
+- **Unified Retrieval**: Combines semantic search across all document types
+- **Context-Aware Responses**: Uses conversation history for better answers
+
+### 🔍 **Advanced Search Capabilities**
+- **Semantic Chunking**: Intelligent text splitting using embeddings
+- **Hybrid Search**: Combines vector similarity + keyword matching
+- **Metadata Queries**: File properties, permissions, revision history
+- **Content Queries**: Deep document analysis and information extraction
+
+### 🛡️ **Data Management**
+- **User Isolation**: Separate data storage per user
+- **Incremental Processing**: Only processes new/modified files
+- **Cleanup System**: Removes deleted files automatically
+- **Revision Tracking**: Monitors file changes and updates
+
+## 🏗️ Architecture
+
+### **Core Components**
+
+#### 1. **Image Processor** (`image_processor.py`)
+- **Gemini Vision Integration**: Analyzes images in PDFs
+- **PyMuPDF Processing**: Extracts images and text from PDFs
+- **Multi-format Support**: Handles various image formats
+
+#### 2. **spaCy Metadata Handler** (`spacy_metadata_handler.py`)
+- **NLP Classification**: Uses spaCy to classify query types
+- **OpenSearch Integration**: Stores and queries file metadata
+- **Query Routing**: Directs queries to appropriate handlers
+
+#### 3. **Main Application** (`test.py`)
+- **Streamlit Interface**: Web-based user interface
+- **Google OAuth**: Secure authentication
+- **Unified Processing**: Orchestrates all components
+
+### **Data Flow**
+
+```
+Google Drive → Authentication → File Discovery → Processing Pipeline
+     ↓
+PDFs: Text + Images → Gemini Vision → Vector Embeddings
+Docs: Content → Semantic Chunking → Vector Embeddings  
+Sheets: Structured Data → LlamaParse → Vector Embeddings
+     ↓
+OpenSearch Storage → Query Classification → Unified Retrieval → AI Response
+```
+
+## 🛠️ Setup Instructions
+
+### **1. Environment Setup**
+
 ```bash
-python3 -m venv env
-source env/bin/activate
+# Clone the repository
+git clone <repository-url>
+cd SheetsLoader
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-streamlit run streamlit_app.py
 ```
 
-## Environment Setup
+### **2. API Keys & Configuration**
 
-### 1. Create .env file:
-```bash
-# OpenAI API Configuration
-OPENAI_API_KEY=your_openai_api_key_here
+Create a `.env` file with your API keys:
 
-# Google OAuth Configuration
-GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+```env
+# Google OAuth (for Drive access)
+GOOGLE_OAUTH_CLIENT_ID=your_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_client_secret
+
+# Google AI (for Gemini)
+GOOGLE_API_KEY=your_gemini_api_key
+
+# LlamaCloud (for sheet parsing)
+LLAMA_CLOUD_API_KEY=your_llama_cloud_key
+
+# OpenSearch (optional - defaults to localhost)
+OPENSEARCH_URL=http://localhost:9200
+OPENSEARCH_USERNAME=your_username
+OPENSEARCH_PASSWORD=your_password
 ```
 
-### 2. Set up Google OAuth:
+### **3. Google Cloud Setup**
 
-1. **Go to [Google Cloud Console](https://console.cloud.google.com/)**
-2. **Create a new project** or select existing one
-3. **Enable APIs**:
+1. **Create Google Cloud Project**
+2. **Enable APIs**:
    - Google Drive API
-   - Google+ API (for user info)
-4. **Create OAuth 2.0 Credentials**:
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth 2.0 Client IDs"
-   - Application type: "Web application"
-   - Add authorized redirect URI: `http://localhost:8501`
-5. **Copy Client ID and Secret** to your `.env` file
+   - Google OAuth2 API
+3. **Create OAuth Credentials**:
+   - Application type: Web application
+   - Authorized redirect URIs: `http://localhost:8501`
 
-## How to Use
+### **4. Install spaCy Model**
 
-### Step 1: Sign in with Google
-1. Run the Streamlit app
-2. Click "Sign in with Google"
-3. Complete the OAuth flow
-4. Grant permission to read your Google Drive
+```bash
+python -m spacy download en_core_web_sm
+```
 
-### Step 2: Process Your Documents
-1. Click "Process My Google Drive"
-2. Wait while the app scans your entire Drive for PDFs
-3. Watch the progress as documents are processed
-4. Your personal knowledge base is built automatically
+### **5. Start OpenSearch**
 
-### Step 3: Chat with Your Documents
-1. Start asking questions about any of your documents
-2. The AI will search across your entire document collection
-3. Get intelligent answers with source references
+```bash
+# Using Docker
+docker run -d --name opensearch -p 9200:9200 -p 9600:9600 opensearchproject/opensearch:latest
 
-## Technical Stack
+# Or install locally
+# Follow OpenSearch installation guide
+```
 
-- **Frontend**: Streamlit
-- **Authentication**: Google OAuth 2.0
-- **PDF Processing**: PyMuPDF (fitz)
-- **Vector Search**: FAISS (user-specific databases)
-- **LLM**: OpenAI GPT-4o-mini
-- **Embeddings**: OpenAI text-embedding-3-small
-- **Drive Integration**: Google Drive API
+## 🚀 Usage
 
-## Key Features
+### **1. Start the Application**
 
-### 🔐 Secure Authentication
-- Google OAuth 2.0 integration
-- No need to make files public
-- Secure access to user's private Drive
+```bash
+streamlit run test.py
+```
 
-### 🧠 Intelligent Processing
-- Scans entire Google Drive automatically
-- Processes all PDF files in user's account
-- Creates user-specific vector databases
-- Preserves document metadata and links
+### **2. Authentication**
 
-### 💾 Personal Data Management
-- Each user gets their own vector database
-- Persistent storage across sessions
-- Option to refresh with new documents
-- Complete privacy and data isolation
+1. Click "Connect Google Drive"
+2. Complete Google OAuth flow
+3. Grant necessary permissions
 
-### 💬 Advanced Chat Features
-- Context-aware conversations
-- Source document references
-- Intelligent retrieval across all user documents
-- Memory of chat history
+### **3. Process Documents**
 
+1. Click "Process Documents" in sidebar
+2. System scans your Google Drive
+3. Processes PDFs, Docs, and Sheets
+4. Creates vector embeddings and metadata
+
+### **4. Ask Questions**
+
+#### **Content Queries**
+- "What does the quarterly report say about revenue?"
+- "Find information about product specifications"
+- "Summarize the key points from the meeting notes"
+
+#### **Metadata Queries**
+- "Show me all PDF files from last week"
+- "Who has access to the budget spreadsheet?"
+- "What are the largest files in my Drive?"
+- "Show revision history for the project plan"
+
+#### **Mixed Queries**
+- "Which file contains information about marketing strategy?"
+- "Find documents about Q4 planning"
+
+## 🔧 Key Functions Explained
+
+### **Image Processing**
+- `init_gemini()`: Initialize Gemini Vision API
+- `extract_images_from_pdf()`: Extract images from PDFs
+- `process_pdf_images()`: Generate descriptions for all images
+
+### **Query Classification**
+- `classify_query()`: Determine if query is content or metadata
+- `handle_metadata_query()`: Process metadata-specific questions
+- `_classify_metadata_query_type()`: Identify specific metadata query type
+
+### **Document Processing**
+- `process_all_user_documents_unified()`: Main processing pipeline
+- `semantic_chunk_text()`: Intelligent text splitting
+- `create_sheets_index()`: Process spreadsheets with LlamaIndex
+
+### **Data Management**
+- `save_enhanced_file_metadata()`: Store comprehensive file info
+- `cleanup_modified_file()`: Remove old data when files change
+- `check_file_modification()`: Detect file changes
+
+### **Search & Retrieval**
+- `UnifiedRetriever`: Combines search across all document types
+- `retrieve_relevant_chunks()`: Get relevant content from multiple sources
+- `create_unified_response()`: Generate comprehensive answers
+
+## 📊 System Capabilities
+
+### **Document Types Supported**
+- **PDFs**: Text + images + links + metadata
+- **Google Docs**: Full content + revision history
+- **Google Sheets**: Structured data + formulas + formatting
+- **Excel Files**: Direct processing + data extraction
+
+### **Query Types Handled**
+- **Content Analysis**: Deep document understanding
+- **Metadata Queries**: File properties and organization
+- **Temporal Queries**: Time-based file filtering
+- **Relationship Queries**: Permissions and sharing
+- **Property Queries**: File sizes, types, counts
+
+### **AI Features**
+- **Gemini Vision**: Image analysis and description
+- **Semantic Search**: Context-aware content retrieval
+- **Conversation Memory**: Maintains context across queries
+- **Hybrid Search**: Combines multiple search strategies
