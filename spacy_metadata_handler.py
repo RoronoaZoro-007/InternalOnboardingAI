@@ -41,9 +41,16 @@ class MetadataQuery:
     original_query: str
 
 class SpacyMetadataHandler:
-    """spaCy-based metadata classification and handling"""
+    """
+    spaCy-based metadata classification and handling for document queries.
+    Uses NLP to classify queries as content vs metadata and handles metadata searches.
+    """
     
     def __init__(self):
+        """
+        Initialize spaCy model, OpenSearch client, and pattern matcher.
+        Sets up the complete metadata handling system.
+        """
         # Load spaCy model
         try:
             self.nlp = spacy.load("en_core_web_sm")
@@ -59,7 +66,12 @@ class SpacyMetadataHandler:
         self._setup_patterns()
     
     def _create_opensearch_client(self) -> Optional[OpenSearch]:
-        """Create OpenSearch client connection"""
+        """
+        Create OpenSearch client connection for metadata storage and retrieval.
+        
+        Returns:
+            OpenSearch: Configured client or None if connection fails
+        """
         try:
             if not OPENSEARCH_USERNAME and not OPENSEARCH_PASSWORD:
                 client = OpenSearch(
@@ -82,7 +94,10 @@ class SpacyMetadataHandler:
             return None
     
     def _setup_patterns(self):
-        """Setup spaCy patterns for query classification"""
+        """
+        Setup spaCy patterns for query classification.
+        Defines patterns to identify metadata vs content queries.
+        """
         self.matcher = Matcher(self.nlp.vocab)
         
         # Metadata patterns
@@ -149,7 +164,13 @@ class SpacyMetadataHandler:
     
     def classify_query(self, query: str) -> QueryClassification:
         """
-        Classify a query as either 'content' or 'metadata' using spaCy
+        Classify a query as either 'content' or 'metadata' using spaCy NLP.
+        
+        Args:
+            query (str): User's question to classify
+            
+        Returns:
+            QueryClassification: Classification result with confidence and reasoning
         """
         try:
             doc = self.nlp(query.lower())
@@ -209,8 +230,25 @@ class SpacyMetadataHandler:
             return self._fallback_classification(query)
     
     def _classify_metadata_query_type(self, doc: Doc) -> str:
-        """Classify the specific type of metadata query"""
+        """
+        Classify the specific type of metadata query (temporal, relationship, etc.).
+        
+        Args:
+            doc (Doc): spaCy document object
+            
+        Returns:
+            str: Query type (temporal, relationship, property, etc.)
+        """
         text = doc.text.lower()
+        
+        # Revision queries
+        revision_keywords = [
+            "revision", "version", "change", "changed", "modified", "updated",
+            "what changed", "what was changed", "difference", "diff", "compare",
+            "from version", "to version", "between versions", "revision history"
+        ]
+        if any(keyword in text for keyword in revision_keywords):
+            return "revision"
         
         # Temporal queries
         temporal_keywords = [
@@ -247,7 +285,15 @@ class SpacyMetadataHandler:
         return "general"
     
     def _fallback_classification(self, query: str) -> QueryClassification:
-        """Fallback classification using simple keyword matching"""
+        """
+        Fallback classification using simple keyword matching when spaCy fails.
+        
+        Args:
+            query (str): User's question to classify
+            
+        Returns:
+            QueryClassification: Basic classification result
+        """
         query_lower = query.lower()
         
         metadata_keywords = [
@@ -284,7 +330,12 @@ class SpacyMetadataHandler:
             )
     
     def create_metadata_index(self) -> bool:
-        """Create the metadata index in OpenSearch"""
+        """
+        Create the metadata index in OpenSearch with proper mapping.
+        
+        Returns:
+            bool: True if index created successfully, False otherwise
+        """
         if not self.opensearch_client:
             return False
         
@@ -316,6 +367,23 @@ class SpacyMetadataHandler:
                         "word_count": {"type": "integer"},
                         "sheet_count": {"type": "integer"},
                         "total_chunks": {"type": "integer"},
+                        
+                        # Revision-specific fields (for sheets)
+                        "revision_id": {"type": "keyword"},
+                        "revision_modified_time": {"type": "date"},
+                        "revision_size": {"type": "keyword"},
+                        "revision_keep_forever": {"type": "boolean"},
+                        "revision_original_filename": {"type": "text"},
+                        "revision_mime_type": {"type": "keyword"},
+                        "last_modifying_user": {
+                            "type": "object",
+                            "properties": {
+                                "displayName": {"type": "text"},
+                                "emailAddress": {"type": "keyword"},
+                                "permissionId": {"type": "keyword"},
+                                "photoLink": {"type": "keyword"}
+                            }
+                        },
                         
                         # Ownership and permissions
                         "owners": {
@@ -382,7 +450,16 @@ class SpacyMetadataHandler:
             return False
     
     def store_metadata_in_opensearch(self, file_metadata: Dict, user_email: str) -> bool:
-        """Store metadata in OpenSearch"""
+        """
+        Store file metadata in OpenSearch for querying.
+        
+        Args:
+            file_metadata (Dict): File metadata dictionary
+            user_email (str): User's email for data isolation
+            
+        Returns:
+            bool: True if metadata stored successfully
+        """
         if not self.opensearch_client:
             return False
         
@@ -402,10 +479,6 @@ class SpacyMetadataHandler:
                         "file_type": metadata.get('file_type', ''),
                         "mime_type": metadata.get('mime_type', ''),
                         "file_size_mb": metadata.get('file_size_mb', 0.0),
-                        "created_time": metadata.get('created_time', ''),
-                        "modified_time": metadata.get('modified_time', ''),
-                        "viewed_by_me_time": metadata.get('viewed_by_me_time', ''),
-                        "processed_time": metadata.get('processed_time', ''),
                         "page_count": metadata.get('page_count', 0),
                         "word_count": metadata.get('word_count', 0),
                         "sheet_count": metadata.get('sheet_count', 0),
@@ -422,10 +495,31 @@ class SpacyMetadataHandler:
                         "app_properties": metadata.get('app_properties', {}),
                         "properties": metadata.get('properties', {}),
                         
+                        # Revision-specific fields
+                        "revision_id": metadata.get('revision_id', ''),
+                        "revision_size": metadata.get('revision_size', ''),
+                        "revision_keep_forever": metadata.get('revision_keep_forever', False),
+                        "revision_original_filename": metadata.get('revision_original_filename', ''),
+                        "revision_mime_type": metadata.get('revision_mime_type', ''),
+                        "last_modifying_user": metadata.get('last_modifying_user', {}),
+                        
                         # Nested objects
                         "owners": metadata.get('owners', []),
                         "permissions": metadata.get('permissions', [])
                     }
+                    
+                    # Handle date fields properly - only include if they have valid values
+                    date_fields = {
+                        "created_time": metadata.get('created_time'),
+                        "modified_time": metadata.get('modified_time'),
+                        "viewed_by_me_time": metadata.get('viewed_by_me_time'),
+                        "processed_time": metadata.get('processed_time'),
+                        "revision_modified_time": metadata.get('revision_modified_time')
+                    }
+                    
+                    for field_name, field_value in date_fields.items():
+                        if field_value and field_value.strip():  # Only include non-empty values
+                            document[field_name] = field_value
                     
                     # Index the document
                     self.opensearch_client.index(
@@ -448,7 +542,16 @@ class SpacyMetadataHandler:
             return False
     
     def handle_metadata_query(self, query: str, user_email: str) -> str:
-        """Handle metadata queries using spaCy and OpenSearch"""
+        """
+        Handle metadata queries using spaCy classification and OpenSearch.
+        
+        Args:
+            query (str): User's metadata question
+            user_email (str): User's email for data access
+            
+        Returns:
+            str: Formatted response with metadata information
+        """
         try:
             # Classify the query type
             classification = self.classify_query(query)
@@ -457,7 +560,9 @@ class SpacyMetadataHandler:
                 return "This query appears to be about content, not metadata."
             
             # Route to appropriate handler based on query type
-            if classification.query_type == "temporal":
+            if classification.query_type == "revision":
+                return self._handle_revision_query(query, user_email)
+            elif classification.query_type == "temporal":
                 return self._handle_temporal_query(query, user_email)
             elif classification.query_type == "relationship":
                 return self._handle_relationship_query(query, user_email)
@@ -588,6 +693,10 @@ class SpacyMetadataHandler:
                     else:
                         return f"File '{file_name}' not found in your documents."
             
+            # If no person name found, return a helpful message
+            if not person_name:
+                return "I couldn't identify a specific person in your query. Please try asking about a specific person (e.g., 'Who shared the file report.pdf?' or 'Show me files owned by John Smith')."
+            
             # Original person-based search
             search_body = {
                 "query": {
@@ -664,9 +773,226 @@ class SpacyMetadataHandler:
             print(f"Error handling property query: {str(e)}")
             return f"Error processing property query: {str(e)}"
     
+    def _handle_revision_query(self, query: str, user_email: str) -> str:
+        """Handle revision-related queries for sheets"""
+        try:
+            query_lower = query.lower()
+            
+            # Check if this is a comparison query
+            if any(word in query_lower for word in ["compare", "difference", "diff", "between", "from", "to"]):
+                return self._handle_revision_comparison_query(query, user_email)
+            
+            # Check if this is asking about what changed
+            if any(word in query_lower for word in ["what changed", "what was changed", "changes", "modified", "updated"]):
+                return self._handle_revision_changes_query(query, user_email)
+            
+            # Default: show revision history
+            return self._handle_revision_history_query(query, user_email)
+            
+        except Exception as e:
+            print(f"Error handling revision query: {str(e)}")
+            return f"Error processing revision query: {str(e)}"
+    
+    def _handle_revision_comparison_query(self, query: str, user_email: str) -> str:
+        """Handle queries comparing two revisions"""
+        try:
+            # Extract file name and revision information from query
+            doc = self.nlp(query)
+            file_name = None
+            
+            # Look for file name in the query
+            for token in doc:
+                if token.text.lower() in ["file", "sheet", "spreadsheet", "document"]:
+                    if token.i + 1 < len(doc):
+                        potential_name = doc[token.i + 1].text
+                        if potential_name.lower() not in ["is", "was", "has", "the", "a", "an"]:
+                            file_name = potential_name
+                            break
+            
+            # Search for the file's revisions
+            search_body = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"user_email": user_email}},
+                            {"term": {"file_type": "sheet"}},
+                            {"exists": {"field": "revision_id"}}
+                        ]
+                    }
+                },
+                "sort": [{"revision_modified_time": {"order": "asc"}}],
+                "size": 50
+            }
+            
+            if file_name:
+                search_body["query"]["bool"]["must"].append({"match": {"file_name": file_name}})
+            
+            results = self.opensearch_client.search(index=METADATA_INDEX, body=search_body)
+            hits = results.get('hits', {}).get('hits', [])
+            
+            if not hits:
+                return "No sheet revisions found."
+            
+            # Group by file
+            files_revisions = {}
+            for hit in hits:
+                source = hit['_source']
+                file_id = source.get('file_id', '')
+                if file_id not in files_revisions:
+                    files_revisions[file_id] = []
+                files_revisions[file_id].append(source)
+            
+            response = "**Sheet Revisions Available for Comparison:**\n\n"
+            
+            for file_id, revisions in files_revisions.items():
+                if len(revisions) < 2:
+                    continue
+                
+                file_name = revisions[0].get('file_name', 'Unknown')
+                response += f"**{file_name}** ({len(revisions)} revisions):\n"
+                
+                for i, revision in enumerate(revisions):
+                    revision_id = revision.get('revision_id', 'Unknown')
+                    modified_time = revision.get('revision_modified_time', 'Unknown')
+                    size = revision.get('revision_size', '0')
+                    user = revision.get('last_modifying_user', {}).get('displayName', 'Unknown')
+                    
+                    response += f"  {i+1}. Revision {revision_id[:8]}... ({modified_time[:10]})\n"
+                    response += f"     Size: {size} bytes, Modified by: {user}\n"
+                
+                response += "\n"
+            
+            response += "\n**To compare specific revisions, ask:** 'Compare revision X and Y of [filename]'"
+            return response
+            
+        except Exception as e:
+            print(f"Error handling revision comparison query: {str(e)}")
+            return f"Error processing revision comparison: {str(e)}"
+    
+    def _handle_revision_changes_query(self, query: str, user_email: str) -> str:
+        """Handle queries about what changed in recent revisions"""
+        try:
+            # Search for recent sheet revisions
+            search_body = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"user_email": user_email}},
+                            {"term": {"file_type": "sheet"}},
+                            {"exists": {"field": "revision_id"}}
+                        ]
+                    }
+                },
+                "sort": [{"revision_modified_time": {"order": "desc"}}],
+                "size": 20
+            }
+            
+            results = self.opensearch_client.search(index=METADATA_INDEX, body=search_body)
+            hits = results.get('hits', {}).get('hits', [])
+            
+            if not hits:
+                return "No sheet revisions found."
+            
+            response = "**Recent Sheet Changes:**\n\n"
+            
+            # Group by file and show recent changes
+            files_changes = {}
+            for hit in hits:
+                source = hit['_source']
+                file_id = source.get('file_id', '')
+                if file_id not in files_changes:
+                    files_changes[file_id] = []
+                files_changes[file_id].append(source)
+            
+            for file_id, revisions in files_changes.items():
+                if len(revisions) < 2:
+                    continue
+                
+                file_name = revisions[0].get('file_name', 'Unknown')
+                response += f"**{file_name}** - Recent Changes:\n"
+                
+                # Show last 3 revisions
+                for i, revision in enumerate(revisions[:3]):
+                    revision_id = revision.get('revision_id', 'Unknown')
+                    modified_time = revision.get('revision_modified_time', 'Unknown')
+                    size = revision.get('revision_size', '0')
+                    user = revision.get('last_modifying_user', {}).get('displayName', 'Unknown')
+                    
+                    response += f"  • Revision {revision_id[:8]}... ({modified_time[:10]})\n"
+                    response += f"    Modified by: {user}, Size: {size} bytes\n"
+                
+                response += "\n"
+            
+            response += "\n**Note:** To see detailed content changes between revisions, ask about specific revisions."
+            return response
+            
+        except Exception as e:
+            print(f"Error handling revision changes query: {str(e)}")
+            return f"Error processing revision changes: {str(e)}"
+    
+    def _handle_revision_history_query(self, query: str, user_email: str) -> str:
+        """Handle general revision history queries"""
+        try:
+            # Search for all sheet revisions
+            search_body = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"user_email": user_email}},
+                            {"term": {"file_type": "sheet"}},
+                            {"exists": {"field": "revision_id"}}
+                        ]
+                    }
+                },
+                "sort": [{"revision_modified_time": {"order": "desc"}}],
+                "size": 50
+            }
+            
+            results = self.opensearch_client.search(index=METADATA_INDEX, body=search_body)
+            hits = results.get('hits', {}).get('hits', [])
+            
+            if not hits:
+                return "No sheet revisions found."
+            
+            response = "**Sheet Revision History:**\n\n"
+            
+            # Group by file
+            files_revisions = {}
+            for hit in hits:
+                source = hit['_source']
+                file_id = source.get('file_id', '')
+                if file_id not in files_revisions:
+                    files_revisions[file_id] = []
+                files_revisions[file_id].append(source)
+            
+            for file_id, revisions in files_revisions.items():
+                file_name = revisions[0].get('file_name', 'Unknown')
+                response += f"**{file_name}** ({len(revisions)} revisions):\n"
+                
+                for i, revision in enumerate(revisions):
+                    revision_id = revision.get('revision_id', 'Unknown')
+                    modified_time = revision.get('revision_modified_time', 'Unknown')
+                    size = revision.get('revision_size', '0')
+                    user = revision.get('last_modifying_user', {}).get('displayName', 'Unknown')
+                    
+                    response += f"  {i+1}. Revision {revision_id[:8]}... ({modified_time[:10]})\n"
+                    response += f"     Size: {size} bytes, Modified by: {user}\n"
+                
+                response += "\n"
+            
+            return response
+            
+        except Exception as e:
+            print(f"Error handling revision history query: {str(e)}")
+            return f"Error processing revision history: {str(e)}"
+    
     def _handle_general_metadata_query(self, query: str, user_email: str) -> str:
         """Handle general metadata queries using text search"""
         try:
+            # Validate query is not empty
+            if not query or not query.strip():
+                return "Please provide a valid query to search for files."
+            
             # Build text search query
             search_body = {
                 "query": {
@@ -675,7 +1001,7 @@ class SpacyMetadataHandler:
                             {"term": {"user_email": user_email}},
                             {
                                 "multi_match": {
-                                    "query": query,
+                                    "query": query.strip(),
                                     "fields": ["file_name", "file_type", "mime_type"]
                                 }
                             }
@@ -736,29 +1062,67 @@ class SpacyMetadataHandler:
         # Look for person entities
         for ent in doc.ents:
             if ent.label_ == "PERSON":
-                return ent.text
+                person_name = ent.text.strip()
+                if person_name:  # Ensure it's not empty
+                    return person_name
         
         # Fallback: look for common patterns
         query_lower = query.lower()
         
         if "shared by" in query_lower:
-            return query_lower.split("shared by")[-1].strip()
+            person_name = query_lower.split("shared by")[-1].strip()
+            if person_name and person_name not in ["the", "a", "an", "this", "that"]:
+                return person_name
         elif "owned by" in query_lower:
-            return query_lower.split("owned by")[-1].strip()
+            person_name = query_lower.split("owned by")[-1].strip()
+            if person_name and person_name not in ["the", "a", "an", "this", "that"]:
+                return person_name
         elif "created by" in query_lower:
-            return query_lower.split("created by")[-1].strip()
+            person_name = query_lower.split("created by")[-1].strip()
+            if person_name and person_name not in ["the", "a", "an", "this", "that"]:
+                return person_name
         
         return None
     
-    def _format_temporal_results(self, results: Dict, temporal_info: Dict) -> str:
-        """Format temporal query results"""
+    def _format_results(self, results: Dict, query_type: str = "general", **kwargs) -> str:
+        """Generic function to format query results"""
         hits = results.get('hits', {}).get('hits', [])
         
         if not hits:
-            return "No files found matching your temporal criteria."
+            if query_type == "temporal":
+                return "No files found matching your temporal criteria."
+            elif query_type == "relationship":
+                person_name = kwargs.get('person_name', '')
+                return f"No files found shared by or owned by '{person_name}'."
+            else:
+                return "No files found matching your criteria."
         
-        response = f"**Files {temporal_info.get('field', 'modified')} in the specified time period:**\n\n"
+        # Determine response header based on query type
+        if query_type == "temporal":
+            field = kwargs.get('field', 'modified')
+            response = f"**Files {field} in the specified time period:**\n\n"
+        elif query_type == "relationship":
+            person_name = kwargs.get('person_name', '')
+            response = f"**Files related to '{person_name}':**\n\n"
+        elif query_type == "property":
+            query_lower = kwargs.get('query', '').lower()
+            if "largest" in query_lower or "biggest" in query_lower:
+                response = "**Largest files:**\n\n"
+            elif "smallest" in query_lower:
+                response = "**Smallest files:**\n\n"
+            elif "pdf" in query_lower:
+                response = "**PDF files:**\n\n"
+            elif "google doc" in query_lower or "document" in query_lower:
+                response = "**Google Documents:**\n\n"
+            elif "sheet" in query_lower or "spreadsheet" in query_lower:
+                response = "**Google Sheets:**\n\n"
+            else:
+                response = "**Files matching your criteria:**\n\n"
+        else:
+            query = kwargs.get('query', '')
+            response = f"**Files matching '{query}':**\n\n"
         
+        # Format each hit
         for i, hit in enumerate(hits[:10], 1):
             source = hit['_source']
             file_name = source.get('file_name', 'Unknown')
@@ -770,108 +1134,39 @@ class SpacyMetadataHandler:
             response += f"{i}. **{file_name}** ({file_type})\n"
             response += f"   Size: {file_size:.2f} MB\n"
             response += f"   Modified: {modified_time[:10]}\n"
+            
+            # Add relationship-specific information
+            if query_type == "relationship":
+                person_name = kwargs.get('person_name', '')
+                permissions = source.get('permissions', [])
+                for perm in permissions:
+                    if person_name.lower() in perm.get('displayName', '').lower() or \
+                       person_name.lower() in perm.get('emailAddress', '').lower():
+                        role = perm.get('role', 'Unknown')
+                        response += f"   Role: {role}\n"
+                        break
+            
             if web_view_link:
                 response += f"   Link: {web_view_link}\n"
             response += "\n"
         
         return response
+    
+    def _format_temporal_results(self, results: Dict, temporal_info: Dict) -> str:
+        """Format temporal query results"""
+        return self._format_results(results, "temporal", field=temporal_info.get('field', 'modified'))
     
     def _format_relationship_results(self, results: Dict, person_name: str) -> str:
         """Format relationship query results"""
-        hits = results.get('hits', {}).get('hits', [])
-        
-        if not hits:
-            return f"No files found shared by or owned by '{person_name}'."
-        
-        response = f"**Files related to '{person_name}':**\n\n"
-        
-        for i, hit in enumerate(hits[:10], 1):
-            source = hit['_source']
-            file_name = source.get('file_name', 'Unknown')
-            file_type = source.get('file_type', 'Unknown')
-            web_view_link = source.get('web_view_link', '')
-            permissions = source.get('permissions', [])
-            
-            response += f"{i}. **{file_name}** ({file_type})\n"
-            
-            # Show permission details
-            for perm in permissions:
-                if person_name.lower() in perm.get('displayName', '').lower() or \
-                   person_name.lower() in perm.get('emailAddress', '').lower():
-                    role = perm.get('role', 'Unknown')
-                    response += f"   Role: {role}\n"
-                    break
-            
-            if web_view_link:
-                response += f"   Link: {web_view_link}\n"
-            response += "\n"
-        
-        return response
+        return self._format_results(results, "relationship", person_name=person_name)
     
     def _format_property_results(self, results: Dict, query: str) -> str:
         """Format property query results"""
-        hits = results.get('hits', {}).get('hits', [])
-        
-        if not hits:
-            return "No files found matching your criteria."
-        
-        query_lower = query.lower()
-        
-        if "largest" in query_lower or "biggest" in query_lower:
-            response = "**Largest files:**\n\n"
-        elif "smallest" in query_lower:
-            response = "**Smallest files:**\n\n"
-        elif "pdf" in query_lower:
-            response = "**PDF files:**\n\n"
-        elif "google doc" in query_lower or "document" in query_lower:
-            response = "**Google Documents:**\n\n"
-        elif "sheet" in query_lower or "spreadsheet" in query_lower:
-            response = "**Google Sheets:**\n\n"
-        else:
-            response = "**Files matching your criteria:**\n\n"
-        
-        for i, hit in enumerate(hits[:10], 1):
-            source = hit['_source']
-            file_name = source.get('file_name', 'Unknown')
-            file_type = source.get('file_type', 'Unknown')
-            file_size = source.get('file_size_mb', 0)
-            modified_time = source.get('modified_time', 'Unknown')
-            web_view_link = source.get('web_view_link', '')
-            
-            response += f"{i}. **{file_name}** ({file_type})\n"
-            response += f"   Size: {file_size:.2f} MB\n"
-            response += f"   Modified: {modified_time[:10]}\n"
-            if web_view_link:
-                response += f"   Link: {web_view_link}\n"
-            response += "\n"
-        
-        return response
+        return self._format_results(results, "property", query=query)
     
     def _format_general_results(self, results: Dict, query: str) -> str:
         """Format general metadata query results"""
-        hits = results.get('hits', {}).get('hits', [])
-        
-        if not hits:
-            return "No files found matching your query."
-        
-        response = f"**Files matching '{query}':**\n\n"
-        
-        for i, hit in enumerate(hits[:10], 1):
-            source = hit['_source']
-            file_name = source.get('file_name', 'Unknown')
-            file_type = source.get('file_type', 'Unknown')
-            file_size = source.get('file_size_mb', 0)
-            modified_time = source.get('modified_time', 'Unknown')
-            web_view_link = source.get('web_view_link', '')
-            
-            response += f"{i}. **{file_name}** ({file_type})\n"
-            response += f"   Size: {file_size:.2f} MB\n"
-            response += f"   Modified: {modified_time[:10]}\n"
-            if web_view_link:
-                response += f"   Link: {web_view_link}\n"
-            response += "\n"
-        
-        return response
+        return self._format_results(results, "general", query=query)
 
 # Global instance
 spacy_metadata_handler = None
