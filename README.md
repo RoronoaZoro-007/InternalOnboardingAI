@@ -126,7 +126,7 @@ docker run -d --name opensearch -p 9200:9200 -p 9600:9600 opensearchproject/open
 ### **1. Start the Application**
 
 ```bash
-streamlit run test.py
+streamlit run streamlit_app_drive_summarisation.py
 ```
 
 ### **2. Authentication**
