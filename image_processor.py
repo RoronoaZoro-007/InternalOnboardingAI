@@ -8,7 +8,15 @@ import os
 import base64
 
 def init_gemini(api_key):
-    """Initialize Gemini API with the provided key."""
+    """
+    Initialize Gemini API client for image processing.
+    
+    Args:
+        api_key (str): Google API key for Gemini access
+        
+    Returns:
+        ChatGoogleGenerativeAI: Configured Gemini model instance
+    """
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         google_api_key=api_key,
@@ -16,7 +24,17 @@ def init_gemini(api_key):
     )
 
 def describe_image(model, image_data, prompt="What's in this image? Provide full detail as possible."):
-    """Get a description of an image using Gemini Vision."""
+    """
+    Generate detailed description of an image using Gemini Vision.
+    
+    Args:
+        model: Gemini model instance
+        image_data: Image data (bytes or PIL Image)
+        prompt (str): Custom prompt for image analysis
+        
+    Returns:
+        str: Detailed description of the image content
+    """
     try:
         # Convert bytes to PIL Image if needed
         if isinstance(image_data, bytes):
@@ -53,7 +71,15 @@ def describe_image(model, image_data, prompt="What's in this image? Provide full
         return None
 
 def extract_images_from_pdf(pdf_path):
-    """Extract images from PDF using PyMuPDF with simplified processing."""
+    """
+    Extract all images from a PDF file using PyMuPDF.
+    
+    Args:
+        pdf_path (str): Path to the PDF file
+        
+    Returns:
+        list: List of dictionaries containing image data and metadata
+    """
     try:
         doc = fitz.open(pdf_path)
         images = []
@@ -98,7 +124,16 @@ def extract_images_from_pdf(pdf_path):
         return []
 
 def process_pdf_images(pdf_path, model):
-    """Process all images in a PDF and return their descriptions."""
+    """
+    Process all images in a PDF and generate descriptions for each.
+    
+    Args:
+        pdf_path (str): Path to the PDF file
+        model: Gemini model instance for image analysis
+        
+    Returns:
+        list: List of dictionaries with image descriptions and metadata
+    """
     print(f"Starting image processing for: {pdf_path}")
     images = extract_images_from_pdf(pdf_path)
     results = []
