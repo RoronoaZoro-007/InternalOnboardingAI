@@ -1,3 +1,0 @@
-OPENAI_API_KEY = "sk-rHBfFC2KgtNhk69NxGEkuLafC3P1Xhoeq2OkgPyru42rCBfn"
-GOOGLE_CLIENT_ID="739313191960-9udvge85q29uek20nauf9kap9mk9kp9v.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="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"
