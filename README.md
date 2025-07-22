@@ -64,7 +64,6 @@ OpenSearch Storage → Query Classification → Unified Retrieval → AI Respons
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd SheetsLoader
 
 # Create virtual environment
 python -m venv venv
