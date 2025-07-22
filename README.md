@@ -58,9 +58,10 @@ OpenSearch Storage → Query Classification → Unified Retrieval → AI Respons
 ```
 
 ## 🛠️ Setup Instructions
-## Quick Start
 
-### Option 1: Automated Setup (Recommended)
+### **1. Quick Start**
+
+#### Option 1: Automated Setup (Recommended)
 ```bash
 # Make the setup script executable
 chmod +x setup_venv.sh
@@ -72,19 +73,25 @@ chmod +x setup_venv.sh
 source venv/bin/activate
 
 # Run the application
-streamlit run streamlit_app_drive_opensearch.py
+streamlit run streamlit_app_drive_summarisation.py
+```
 
-### Option 2: Manual Setup
+#### Option 2: Manual Setup
 ```bash
-# Clone the repository
-git clone <repository-url>
-
 # Create virtual environment
-python -m venv venv
+python3 -m venv venv
+
+# Activate virtual environment
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Download spaCy English model
+python -m spacy download en_core_web_sm
+
+# Run the application
+streamlit run streamlit_app_drive_opensearch.py
 ```
 
 ### **2. API Keys & Configuration**
@@ -118,13 +125,7 @@ OPENSEARCH_PASSWORD=your_password
    - Application type: Web application
    - Authorized redirect URIs: `http://localhost:8501`
 
-### **4. Install spaCy Model**
-
-```bash
-python -m spacy download en_core_web_sm
-```
-
-### **5. Start OpenSearch**
+### **4. Start OpenSearch**
 
 ```bash
 # Using Docker
@@ -134,12 +135,19 @@ docker run -d --name opensearch -p 9200:9200 -p 9600:9600 opensearchproject/open
 # Follow OpenSearch installation guide
 ```
 
+### **5. System Requirements**
+
+- **Python**: 3.13 or later
+- **Memory**: Minimum 4GB RAM (8GB recommended)
+- **Storage**: At least 2GB free space
+- **Network**: Internet connection for API access
+
 ## 🚀 Usage
 
 ### **1. Start the Application**
 
 ```bash
-streamlit run streamlit_app_drive_summarisation.py
+streamlit run streamlit_app_drive_opensearch.py
 ```
 
 ### **2. Authentication**
