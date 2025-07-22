@@ -58,9 +58,23 @@ OpenSearch Storage → Query Classification → Unified Retrieval → AI Respons
 ```
 
 ## 🛠️ Setup Instructions
+## Quick Start
 
-### **1. Environment Setup**
+### Option 1: Automated Setup (Recommended)
+```bash
+# Make the setup script executable
+chmod +x setup_venv.sh
 
+# Run the automated setup
+./setup_venv.sh
+
+# Activate the virtual environment
+source venv/bin/activate
+
+# Run the application
+streamlit run streamlit_app_drive_opensearch.py
+
+### Option 2: Manual Setup
 ```bash
 # Clone the repository
 git clone <repository-url>
